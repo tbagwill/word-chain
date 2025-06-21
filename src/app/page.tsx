@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface WordChainResponse {
   words: string[];
@@ -34,38 +34,54 @@ export default function Home() {
       try {
         setLoading(true);
         setError(null);
+        
         const response = await fetch('/api/wordchain?length=5');
         
         if (!response.ok) {
-          throw new Error('Failed to fetch word chain');
+          if (response.status === 429) {
+            // Rate limit exceeded
+            const data = await response.json();
+            throw new Error(data.message || 'Too many requests. Please wait before trying again.');
+          }
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
         
         const data: WordChainResponse = await response.json();
-        console.log('🎯 Word Chain for Testing:', data.words);
         
+        if (!data.words || !Array.isArray(data.words)) {
+          throw new Error('Invalid response format');
+        }
+
+        // Initialize word data with status and user input tracking
         const wordsWithStatus: WordWithStatus[] = data.words.map((word, index) => {
           const isMiddleWord = index > 0 && index < data.words.length - 1;
           const userInput = Array(12).fill('');
           
-          // Pre-fill first letter for middle words (the hint)
+          // For middle words, set the first letter as a hint
           if (isMiddleWord) {
-            userInput[0] = word.toUpperCase()[0];
+            userInput[0] = word[0];
           }
           
           return {
             word: word.toUpperCase(),
-            status: index === 0 || index === data.words.length - 1 ? 'solved' : 'unsolved',
+            status: (index === 0 || index === data.words.length - 1) ? 'solved' : 'unsolved',
             userInput,
-            currentIndex: isMiddleWord ? 1 : 0 // Start at position 1 for middle words
+            currentIndex: isMiddleWord ? 1 : 0 // Start at position 1 for middle words (after the hint)
           };
         });
-        
-        console.log('📝 Words with Status:', wordsWithStatus.map(w => ({ word: w.word, status: w.status })));
-        
+
         setWords(wordsWithStatus);
+        
+        // Set the first unsolved word as selected
+        const firstUnsolvedIndex = wordsWithStatus.findIndex(word => word.status === 'unsolved');
+        if (firstUnsolvedIndex !== -1) {
+          setSelectedWordIndex(firstUnsolvedIndex);
+        }
+        
         setIsTimerRunning(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Failed to fetch word chain:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load word chain');
       } finally {
         setLoading(false);
       }
@@ -99,15 +115,15 @@ export default function Home() {
   };
 
   // Calculate star rating
-  const getStarRating = (): number => {
+  const getStarRating = useCallback((): number => {
     if (timer <= 60 && lives >= 4) return 3; // Under 1 minute with 4+ lives
     if (timer <= 120 && lives >= 2) return 2; // Under 2 minutes with 2+ lives
     return 1; // Just solved it
-  };
+  }, [timer, lives]);
 
-  const playSound = (frequency: number, duration: number) => {
+  const playSound = useCallback((frequency: number, duration: number) => {
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioContext = new ((window as typeof window & { webkitAudioContext?: typeof AudioContext }).AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -122,11 +138,11 @@ export default function Home() {
       
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + duration);
-    } catch (error) {
+    } catch {
       // Fallback for browsers that don't support Web Audio API
       console.log('Sound not supported');
     }
-  };
+  }, []);
 
   // Render stars
   const renderStars = (rating: number) => {
@@ -288,7 +304,7 @@ export default function Home() {
         }
       }
     }
-  }, [isGameComplete]);
+  }, [isGameComplete, words.length, getStarRating, playSound]);
 
   // Auto-refresh on game over after showing failure animation
   useEffect(() => {
@@ -314,13 +330,26 @@ export default function Home() {
   }
 
   if (error) {
+    const isRateLimit = error.includes('Too many requests') || error.includes('try again');
+    
     return (
       <div className="h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-pink-900 to-purple-900">
-        <div className="text-center backdrop-blur-md bg-white/10 p-8 rounded-3xl">
-          <p className="text-red-300 mb-4">Error: {error}</p>
+        <div className="text-center backdrop-blur-md bg-white/10 p-6 md:p-8 rounded-3xl max-w-md mx-4">
+          <div className="text-4xl md:text-5xl mb-4">
+            {isRateLimit ? '⏳' : '❌'}
+          </div>
+          <h1 className="text-xl md:text-2xl font-bold mb-4 text-white">
+            {isRateLimit ? 'Please Wait' : 'Error'}
+          </h1>
+          <p className="text-red-300 mb-6 text-sm md:text-base">{error}</p>
+          {isRateLimit && (
+            <p className="text-white/60 mb-4 text-xs md:text-sm">
+              This helps protect the game from overuse. Thank you for your patience!
+            </p>
+          )}
           <button 
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all"
+            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all text-sm md:text-base"
           >
             Try Again
           </button>
