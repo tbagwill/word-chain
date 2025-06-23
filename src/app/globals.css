@@ -3,6 +3,21 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  
+  /* Fluid typography scales */
+  --fluid-xs: clamp(0.75rem, 1.5vw, 0.875rem);
+  --fluid-sm: clamp(0.875rem, 2vw, 1rem);
+  --fluid-base: clamp(1rem, 2.5vw, 1.25rem);
+  --fluid-lg: clamp(1.25rem, 3vw, 1.5rem);
+  --fluid-xl: clamp(1.5rem, 4vw, 2rem);
+  --fluid-2xl: clamp(2rem, 5vw, 3rem);
+  
+  /* Fluid spacing scales */
+  --space-xs: clamp(0.25rem, 1vw, 0.5rem);
+  --space-sm: clamp(0.5rem, 1.5vw, 0.75rem);
+  --space-base: clamp(1rem, 2vw, 1.25rem);
+  --space-lg: clamp(1.5rem, 3vw, 2rem);
+  --space-xl: clamp(2rem, 4vw, 3rem);
 }
 
 @theme inline {
@@ -19,18 +34,137 @@
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Prevent overflow and ensure full viewport */
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: var(--fluid-base);
+}
+
+/* Ensure Next.js root div takes full height */
+#__next {
+  height: 100%;
+}
+
+/* Prevent any scrollbars */
+* {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+/* Hide scrollbars for Chrome, Safari and Opera */
+*::-webkit-scrollbar {
+  display: none;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Fluid text utilities */
+  .text-fluid-xs {
+    font-size: var(--fluid-xs);
+  }
+  .text-fluid-sm {
+    font-size: var(--fluid-sm);
+  }
+  .text-fluid-base {
+    font-size: var(--fluid-base);
+  }
+  .text-fluid-lg {
+    font-size: var(--fluid-lg);
+  }
+  .text-fluid-xl {
+    font-size: var(--fluid-xl);
+  }
+  .text-fluid-2xl {
+    font-size: var(--fluid-2xl);
+  }
+}
+
+@layer base {
+  /* Custom breakpoint for extra small screens */
+  @media (min-width: 475px) {
+    .xs\:text-\[10px\] {
+      font-size: 10px;
+    }
+    .xs\:text-xs {
+      font-size: 0.75rem;
+    }
+    .xs\:h-7 {
+      height: 1.75rem;
+    }
+  }
+}
+
+/* Custom animations */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-  20%, 40%, 60%, 80% { transform: translateX(5px); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes fall {
+  0% { 
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% { 
+    transform: translateY(50px) rotate(180deg);
+    opacity: 0;
+  }
 }
 
 .animate-shake {
   animation: shake 0.5s ease-in-out;
+}
+
+.animate-fall {
+  animation: fall 1s ease-in-out forwards;
+}
+
+/* Prevent layout shift during animations */
+.animate-fall {
+  position: relative;
+}
+
+/* Viewport height fixes for mobile browsers */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari */
+  .h-screen {
+    height: -webkit-fill-available;
+  }
+}
+
+/* Ensure consistent spacing across devices - removed fixed font sizes */
+/* Using fluid typography instead of media queries for font size */
+
+/* Grid layout fixes for specific viewport heights */
+@media (max-height: 700px) {
+  .grid-rows-\[auto_auto_1fr_auto\] {
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+}
+
+/* Prevent keyboard buttons from being too tall on landscape mobile */
+@media (max-height: 500px) {
+  .max-h-8 {
+    max-height: 1.5rem !important;
+  }
+  .sm\:max-h-9 {
+    max-height: 1.75rem !important;
+  }
+  .md\:max-h-10 {
+    max-height: 2rem !important;
+  }
 }

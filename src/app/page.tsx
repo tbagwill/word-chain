@@ -13,6 +13,7 @@ interface WordWithStatus {
   status: WordStatus;
   userInput: string[];
   currentIndex: number;
+  hintsRevealed: number;
 }
 
 export default function Home() {
@@ -55,7 +56,7 @@ export default function Home() {
         // Initialize word data with status and user input tracking
         const wordsWithStatus: WordWithStatus[] = data.words.map((word, index) => {
           const isMiddleWord = index > 0 && index < data.words.length - 1;
-          const userInput = Array(12).fill('');
+          const userInput = Array(9).fill('');
           
           // For middle words, set the first letter as a hint
           if (isMiddleWord) {
@@ -66,7 +67,8 @@ export default function Home() {
             word: word.toUpperCase(),
             status: (index === 0 || index === data.words.length - 1) ? 'solved' : 'unsolved',
             userInput,
-            currentIndex: isMiddleWord ? 1 : 0 // Start at position 1 for middle words (after the hint)
+            currentIndex: isMiddleWord ? 1 : 0, // Start at position 1 for middle words (after the hint)
+            hintsRevealed: isMiddleWord ? 1 : 0 // Start with first letter as hint for middle words
           };
         });
 
@@ -147,12 +149,12 @@ export default function Home() {
   // Render stars
   const renderStars = (rating: number) => {
     return (
-      <div className="flex justify-center gap-2">
+      <div className="flex justify-center gap-[var(--space-sm)]">
         {Array.from({ length: 3 }).map((_, index) => (
           <div
             key={index}
             className={`
-              text-3xl md:text-4xl transition-all duration-500 transform
+              text-fluid-xl sm:text-fluid-2xl transition-all duration-500 transform
               ${index < rating 
                 ? starAnimations[index] 
                   ? 'text-yellow-400 scale-125 animate-pulse' 
@@ -173,7 +175,7 @@ export default function Home() {
     if (selectedWordIndex < 1 || selectedWordIndex >= words.length - 1) return;
     
     const currentWord = words[selectedWordIndex];
-    if (currentWord.status === 'solved' || currentWord.currentIndex >= 12) return;
+    if (currentWord.status === 'solved' || currentWord.currentIndex >= 9) return;
     
     setWords(prev => prev.map((word, index) => {
       if (index === selectedWordIndex) {
@@ -195,8 +197,9 @@ export default function Home() {
     if (selectedWordIndex < 1 || selectedWordIndex >= words.length - 1) return;
     
     const currentWord = words[selectedWordIndex];
-    // Don't allow backspace past position 1 (since position 0 is the locked first letter)
-    if (currentWord.status === 'solved' || currentWord.currentIndex <= 1) return;
+    // Don't allow backspace past the hints (first letter + any revealed hints)
+    const minIndex = Math.max(1, currentWord.hintsRevealed);
+    if (currentWord.status === 'solved' || currentWord.currentIndex <= minIndex) return;
     
     setWords(prev => prev.map((word, index) => {
       if (index === selectedWordIndex) {
@@ -241,15 +244,20 @@ export default function Home() {
       
       setWords(prev => prev.map((word, i) => {
         if (i === index) {
-          const newInput = Array(12).fill('');
-          // Reset but keep the first letter hint
-          newInput[0] = word.word[0];
+          const newInput = Array(9).fill('');
+          const newHintsRevealed = Math.min(word.hintsRevealed + 1, word.word.length); // Reveal one more letter as hint
+          
+          // Reset but keep the first letter hint and any newly revealed hints
+          for (let j = 0; j < newHintsRevealed; j++) {
+            newInput[j] = word.word[j];
+          }
           
           return { 
             ...word, 
             status: 'failed' as WordStatus,
             userInput: newInput,
-            currentIndex: 1 // Reset to position 1 (after the locked first letter)
+            currentIndex: newHintsRevealed, // Start after all hints
+            hintsRevealed: newHintsRevealed
           };
         }
         return word;
@@ -320,10 +328,10 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900">
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 px-4 py-6 sm:px-6 sm:py-8">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-white mx-auto mb-4"></div>
-          <p className="text-white/80">Loading...</p>
+          <p className="text-white/80 text-fluid-base">Loading...</p>
         </div>
       </div>
     );
@@ -333,23 +341,23 @@ export default function Home() {
     const isRateLimit = error.includes('Too many requests') || error.includes('try again');
     
     return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-pink-900 to-purple-900">
-        <div className="text-center backdrop-blur-md bg-white/10 p-6 md:p-8 rounded-3xl max-w-md mx-4">
-          <div className="text-4xl md:text-5xl mb-4">
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-pink-900 to-purple-900 px-4 py-6 sm:px-6 sm:py-8">
+        <div className="text-center backdrop-blur-md bg-white/10 p-[var(--space-lg)] rounded-3xl max-w-xs sm:max-w-sm md:max-w-md mx-auto">
+          <div className="text-fluid-2xl mb-4">
             {isRateLimit ? '⏳' : '❌'}
           </div>
-          <h1 className="text-xl md:text-2xl font-bold mb-4 text-white">
+          <h1 className="text-fluid-xl font-bold mb-4 text-white">
             {isRateLimit ? 'Please Wait' : 'Error'}
           </h1>
-          <p className="text-red-300 mb-6 text-sm md:text-base">{error}</p>
+          <p className="text-red-300 mb-6 text-fluid-sm">{error}</p>
           {isRateLimit && (
-            <p className="text-white/60 mb-4 text-xs md:text-sm">
+            <p className="text-white/60 mb-4 text-fluid-xs">
               This helps protect the game from overuse. Thank you for your patience!
             </p>
           )}
           <button 
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all text-sm md:text-base"
+            className="px-[var(--space-lg)] py-[var(--space-base)] bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all text-fluid-base"
           >
             Try Again
           </button>
@@ -362,13 +370,13 @@ export default function Home() {
     const starRating = getStarRating();
     
     return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 relative overflow-hidden">
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-green-900 via-emerald-900 to-teal-900 relative overflow-hidden px-4 py-6 sm:px-6 sm:py-8">
         {/* Floating celebration elements */}
         <div className="absolute inset-0 pointer-events-none">
           {Array.from({ length: 20 }).map((_, i) => (
             <div
               key={i}
-              className="absolute text-2xl animate-bounce"
+              className="absolute text-fluid-lg animate-bounce"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: `${Math.random() * 100}%`,
@@ -381,9 +389,9 @@ export default function Home() {
           ))}
         </div>
         
-        <div className="text-center backdrop-blur-md bg-white/10 p-6 md:p-8 rounded-3xl relative z-10 max-w-sm md:max-w-md w-full mx-4">
-          <div className="text-5xl md:text-6xl mb-4 animate-bounce">🏆</div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-4 text-white">Congratulations!</h1>
+        <div className="text-center backdrop-blur-md bg-white/10 p-[var(--space-lg)] rounded-3xl relative z-10 max-w-xs sm:max-w-sm md:max-w-md w-full mx-auto">
+          <div className="text-fluid-2xl mb-4 animate-bounce">🏆</div>
+          <h1 className="text-fluid-xl font-bold mb-4 text-white">Congratulations!</h1>
           
           {/* Star Rating */}
           <div className="flex justify-center mb-6">
@@ -391,23 +399,23 @@ export default function Home() {
           </div>
           
           {/* Stats */}
-          <div className="backdrop-blur-sm bg-white/5 p-4 rounded-2xl mb-6 space-y-2">
+          <div className="backdrop-blur-sm bg-white/5 p-[var(--space-base)] rounded-2xl mb-6 space-y-[var(--space-sm)]">
             <div className="flex justify-between items-center">
-              <span className="text-white/80 text-sm md:text-base">Time:</span>
-              <span className="font-mono text-white font-bold text-sm md:text-base">{formatTime(timer)}</span>
+              <span className="text-white/80 text-fluid-sm">Time:</span>
+              <span className="font-mono text-white font-bold text-fluid-sm">{formatTime(timer)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-white/80 text-sm md:text-base">Total Guesses:</span>
-              <span className="font-mono text-white font-bold text-sm md:text-base">{totalGuesses}</span>
+              <span className="text-white/80 text-fluid-sm">Total Guesses:</span>
+              <span className="font-mono text-white font-bold text-fluid-sm">{totalGuesses}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-white/80 text-sm md:text-base">Lives Remaining:</span>
-              <span className="font-mono text-white font-bold text-sm md:text-base">{lives}</span>
+              <span className="text-white/80 text-fluid-sm">Lives Remaining:</span>
+              <span className="font-mono text-white font-bold text-fluid-sm">{lives}</span>
             </div>
           </div>
           
           {/* Performance Message */}
-          <p className="text-white/80 mb-6 text-xs md:text-sm">
+          <p className="text-white/80 mb-6 text-fluid-xs">
             {starRating === 3 && "Amazing! Lightning fast with minimal mistakes!"}
             {starRating === 2 && "Great job! Quick thinking and good accuracy!"}
             {starRating === 1 && "Well done! You solved the puzzle!"}
@@ -415,7 +423,7 @@ export default function Home() {
           
           <button 
             onClick={() => window.location.reload()}
-            className="px-6 md:px-8 py-2 md:py-3 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all transform hover:scale-105 font-semibold text-sm md:text-base"
+            className="px-[var(--space-lg)] py-[var(--space-base)] bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all transform hover:scale-105 font-semibold text-fluid-base"
           >
             Continue to Next Puzzle
           </button>
@@ -426,188 +434,238 @@ export default function Home() {
 
   if (isGameOver) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-pink-900 to-purple-900 animate-pulse">
-        <div className="text-center backdrop-blur-md bg-white/10 p-6 md:p-8 rounded-3xl animate-bounce">
-          <div className="text-5xl md:text-6xl mb-4 animate-spin">💀</div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2 text-white animate-pulse">Game Over!</h1>
-          <p className="text-white/80 mb-4 text-sm md:text-base">You ran out of lives!</p>
-          <div className="flex items-center justify-center gap-2 mb-4">
+      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-red-900 via-pink-900 to-purple-900 animate-pulse px-4 py-6 sm:px-6 sm:py-8">
+        <div className="text-center backdrop-blur-md bg-white/10 p-[var(--space-lg)] rounded-3xl animate-bounce">
+          <div className="text-fluid-2xl mb-4 animate-spin">💀</div>
+          <h1 className="text-fluid-xl font-bold mb-2 text-white animate-pulse">Game Over!</h1>
+          <p className="text-white/80 mb-4 text-fluid-base">You ran out of lives!</p>
+          <div className="flex items-center justify-center gap-[var(--space-sm)] mb-4">
             <div className="w-2 h-2 bg-white rounded-full animate-bounce"></div>
             <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
             <div className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
           </div>
-          <p className="text-white/60 text-xs md:text-sm">Starting new game...</p>
+          <p className="text-white/60 text-fluid-xs">Starting new game...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`h-screen flex flex-col bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 p-3 md:p-4 ${screenShake ? 'animate-shake' : ''}`}>
-      {/* Header - Fixed height */}
-      <div className="flex items-center justify-between mb-2 md:mb-3 flex-shrink-0">
-        <h1 className="text-lg md:text-xl font-bold text-white">Word Chain</h1>
-        <div className="backdrop-blur-md bg-white/10 px-3 py-1 rounded-full flex items-center gap-2">
-          <span className="text-yellow-300 text-sm">⏱️</span>
-          <span className="font-mono text-white text-sm">{formatTime(timer)}</span>
-        </div>
-      </div>
-
-      {/* Lives Display - Fixed height, moved higher */}
-      <div className="flex justify-center mb-4 md:mb-6 flex-shrink-0">
-        <div className="flex gap-1 md:gap-2">
-          {Array.from({ length: 5 }).map((_, index) => (
-            <div 
-              key={index}
-              className={`
-                text-xl md:text-2xl transition-all duration-300 relative
-                ${index < lives ? 'text-red-500' : 'text-gray-600/30'}
-                ${droppingHeart === index ? 'animate-bounce' : ''}
-              `}
-            >
-              ❤️
-              {droppingHeart === index && (
-                <div className="absolute top-0 left-0 text-xl md:text-2xl text-red-500 animate-pulse opacity-50">
-                  💔
-                </div>
-              )}
+    <div className={`h-screen w-screen overflow-hidden bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-900 ${screenShake ? 'animate-shake' : ''}`}>
+      {/* Main container with responsive padding and max-width */}
+      <div className="h-full w-full max-w-screen-lg mx-auto px-4 py-6 sm:px-6 sm:py-8 md:px-8 md:py-10 lg:px-12 lg:py-12">
+        <div className="h-full grid grid-rows-[auto_auto_1fr_auto] gap-2 sm:gap-3 md:gap-4">
+          {/* Header Row - Auto height */}
+          <div className="flex items-center justify-between">
+            <h1 className="text-fluid-lg sm:text-fluid-xl font-bold text-white">Word Chain</h1>
+            <div className="backdrop-blur-md bg-white/10 px-2 sm:px-3 py-1 rounded-full flex items-center gap-1 sm:gap-2">
+              <span className="text-yellow-300 text-fluid-sm">⏱️</span>
+              <span className="font-mono text-white text-fluid-sm">{formatTime(timer)}</span>
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {/* Word Grid - Takes remaining space but leaves room for keyboard */}
-      <div className="flex-1 flex flex-col justify-center items-center min-h-0 mb-4 md:mb-6">
-        <div className="backdrop-blur-md bg-white/10 p-3 md:p-4 rounded-2xl md:rounded-3xl shadow-2xl max-w-full md:max-w-2xl w-full">
-          {words.map((wordData, wordIndex) => (
-            <div 
-              key={wordIndex} 
-              className={`mb-2 md:mb-3 last:mb-0 transition-all duration-300 ${
-                wordData.status === 'failed' ? 'animate-shake' : ''
-              }`}
-              onClick={() => setSelectedWordIndex(wordIndex)}
-            >
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="grid grid-cols-12 gap-1 flex-1">
-                  {Array.from({ length: 12 }).map((_, letterIndex) => {
-                    const isMiddleWord = wordIndex > 0 && wordIndex < words.length - 1;
-                    
-                    let letter = '';
-                    let isCurrentPosition = false;
-                    let isLockedFirstLetter = false;
-                    
-                    if (wordData.status === 'solved') {
-                      // Show the actual word
-                      letter = wordData.word[letterIndex] || '';
-                    } else if (isMiddleWord && letterIndex === 0) {
-                      // First letter is always shown as a hint and locked
-                      letter = wordData.word[0];
-                      isLockedFirstLetter = true;
-                    } else if (isMiddleWord) {
-                      // Show user input for middle words
-                      letter = wordData.userInput[letterIndex] || '';
-                      isCurrentPosition = letterIndex === wordData.currentIndex;
-                    } else {
-                      // First and last words show the complete word
-                      letter = wordData.word[letterIndex] || '';
-                    }
-                    
-                    const hasLetter = letter !== '';
-                    const isEmptyInSolvedWord = wordData.status === 'solved' && !wordData.word[letterIndex];
-                    
-                    return (
-                      <div
-                        key={letterIndex}
-                        className={`
-                          aspect-square rounded-md flex items-center justify-center font-bold text-xs md:text-sm
-                          transition-all duration-300 transform
-                          ${hasLetter && !isEmptyInSolvedWord ? 'scale-100' : 'scale-95'}
-                          ${isEmptyInSolvedWord 
-                            ? 'opacity-0' 
-                            : wordData.status === 'solved' && hasLetter
-                            ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-lg' 
-                            : wordData.status === 'failed'
-                            ? 'bg-gradient-to-br from-red-400 to-pink-500 text-white shadow-lg'
-                            : isLockedFirstLetter
-                            ? 'bg-gradient-to-br from-blue-400 to-blue-500 text-white shadow-lg border-2 border-blue-300'
-                            : isCurrentPosition
-                            ? 'bg-white/30 backdrop-blur-sm shadow-xl scale-110 border-2 border-white/50'
-                            : hasLetter
-                            ? 'bg-white/20 backdrop-blur-sm text-white shadow-md'
-                            : 'bg-white/5 backdrop-blur-sm'
-                          }
-                        `}
-                      >
-                        {letter}
-                      </div>
-                    );
-                  })}
+          {/* Lives Row - Auto height */}
+          <div className="flex justify-center">
+            <div className="flex gap-[var(--space-xs)] sm:gap-[var(--space-sm)]">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div 
+                  key={index}
+                  className={`
+                    text-fluid-lg sm:text-fluid-xl transition-all duration-300 relative
+                    ${droppingHeart === index ? 'animate-fall' : ''}
+                  `}
+                >
+                  {index < lives ? (
+                    <span className="text-red-500">❤️</span>
+                  ) : (
+                    <span className="text-gray-600/50">🖤</span>
+                  )}
+                  {droppingHeart === index && (
+                    <div className="absolute top-0 left-0 text-fluid-lg sm:text-fluid-xl text-red-500 animate-pulse opacity-50">
+                      💔
+                    </div>
+                  )}
                 </div>
-                {wordIndex > 0 && wordIndex < words.length - 1 && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleSubmitWord(wordIndex);
-                    }}
-                    disabled={wordData.status === 'solved' || wordData.currentIndex === 0}
-                    className={`
-                      px-2 md:px-3 py-1 md:py-2 rounded-lg font-semibold text-xs md:text-sm transition-all
-                      ${wordData.status === 'solved'
-                        ? 'bg-green-500 text-white cursor-not-allowed'
-                        : wordData.currentIndex > 0
-                        ? 'bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 hover:scale-105'
-                        : 'bg-white/5 backdrop-blur-sm text-white/30 cursor-not-allowed'
-                      }
-                    `}
-                  >
-                    {wordData.status === 'solved' ? '✓' : 'GO'}
-                  </button>
-                )}
+              ))}
+            </div>
+          </div>
+
+          {/* Word Grid Row - Flexible height with aspect ratio container */}
+          <div className="flex items-center justify-center overflow-hidden">
+            <div className="w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg">
+              <div className="backdrop-blur-md bg-white/10 rounded-2xl shadow-2xl p-[var(--space-base)] sm:p-[var(--space-lg)]">
+                <div className="space-y-[var(--space-sm)] sm:space-y-[var(--space-base)]">
+                  {words.map((wordData, wordIndex) => (
+                    <div 
+                      key={wordIndex} 
+                      className={`transition-all duration-300 ${
+                        wordData.status === 'failed' ? 'animate-shake' : ''
+                      }`}
+                      onClick={() => setSelectedWordIndex(wordIndex)}
+                    >
+                      <div className="flex items-center gap-[var(--space-sm)]">
+                        <div 
+                          className="grid flex-1"
+                          style={{ 
+                            gridTemplateColumns: 'repeat(9, minmax(0, 1fr))',
+                            gap: 'var(--space-xs)'
+                          }}
+                        >
+                          {Array.from({ length: 9 }).map((_, letterIndex) => {
+                            const isMiddleWord = wordIndex > 0 && wordIndex < words.length - 1;
+                            
+                            let letter = '';
+                            let isCurrentPosition = false;
+                            let isLockedFirstLetter = false;
+                            let isHintLetter = false;
+                            
+                            if (wordData.status === 'solved') {
+                              letter = wordData.word[letterIndex] || '';
+                            } else if (isMiddleWord && letterIndex === 0) {
+                              letter = wordData.word[0];
+                              isLockedFirstLetter = true;
+                            } else if (isMiddleWord && letterIndex > 0 && letterIndex < wordData.hintsRevealed) {
+                              letter = wordData.word[letterIndex];
+                              isHintLetter = true;
+                            } else if (isMiddleWord) {
+                              letter = wordData.userInput[letterIndex] || '';
+                              isCurrentPosition = letterIndex === wordData.currentIndex;
+                            } else {
+                              letter = wordData.word[letterIndex] || '';
+                            }
+                            
+                            const hasLetter = letter !== '';
+                            const isEmptyInSolvedWord = wordData.status === 'solved' && !wordData.word[letterIndex];
+                            
+                            return (
+                              <div
+                                key={letterIndex}
+                                className={`
+                                  aspect-square rounded-md flex items-center justify-center font-bold 
+                                  text-fluid-xs sm:text-fluid-sm transition-all duration-300 transform
+                                  ${hasLetter && !isEmptyInSolvedWord ? 'scale-100' : 'scale-95'}
+                                  ${isEmptyInSolvedWord 
+                                    ? 'opacity-0' 
+                                    : wordData.status === 'solved' && hasLetter
+                                    ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-lg' 
+                                    : wordData.status === 'failed'
+                                    ? 'bg-gradient-to-br from-red-400 to-pink-500 text-white shadow-lg'
+                                    : isLockedFirstLetter
+                                    ? 'bg-gradient-to-br from-blue-400 to-blue-500 text-white shadow-lg border-2 border-blue-300'
+                                    : isHintLetter
+                                    ? 'bg-gradient-to-br from-yellow-400 to-amber-500 text-white shadow-lg animate-pulse'
+                                    : isCurrentPosition
+                                    ? 'bg-white/30 backdrop-blur-sm shadow-xl scale-110 border-2 border-white/50'
+                                    : hasLetter
+                                    ? 'bg-white/20 backdrop-blur-sm text-white shadow-md'
+                                    : 'bg-white/5 backdrop-blur-sm'
+                                  }
+                                `}
+                              >
+                                {letter}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {wordIndex > 0 && wordIndex < words.length - 1 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSubmitWord(wordIndex);
+                            }}
+                            disabled={wordData.status === 'solved' || wordData.currentIndex === 0}
+                            className={`
+                              px-[var(--space-sm)] py-[var(--space-xs)] rounded-lg font-semibold 
+                              text-fluid-xs sm:text-fluid-sm transition-all whitespace-nowrap flex-shrink-0
+                              ${wordData.status === 'solved'
+                                ? 'bg-green-500 text-white cursor-not-allowed'
+                                : wordData.currentIndex > 0
+                                ? 'bg-white/20 backdrop-blur-sm text-white hover:bg-white/30 hover:scale-105'
+                                : 'bg-white/5 backdrop-blur-sm text-white/30 cursor-not-allowed'
+                              }
+                            `}
+                          >
+                            {wordData.status === 'solved' ? '✓' : 'GO'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Keyboard - Fixed height, smaller on desktop */}
-      <div className="backdrop-blur-md bg-white/10 p-2 md:p-3 rounded-2xl md:rounded-3xl mb-6 md:mb-0 flex-shrink-0">
-        <div className="grid grid-cols-10 gap-1 max-w-full md:max-w-xl mx-auto">
-          {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(key => (
-            <button
-              key={key}
-              onClick={() => handleKeyPress(key)}
-              className="h-10 md:h-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-md font-bold text-white text-sm transition-all hover:scale-105 active:scale-95"
-            >
-              {key}
-            </button>
-          ))}
-          <div className="col-span-10 grid grid-cols-9 gap-1 mt-1">
-            {['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'].map(key => (
-              <button
-                key={key}
-                onClick={() => handleKeyPress(key)}
-                className="h-10 md:h-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-md font-bold text-white text-sm transition-all hover:scale-105 active:scale-95"
-              >
-                {key}
-              </button>
-            ))}
           </div>
-          <div className="col-span-10 grid grid-cols-8 gap-1 mt-1">
-            {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(key => (
-              <button
-                key={key}
-                onClick={() => handleKeyPress(key)}
-                className="h-10 md:h-10 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-md font-bold text-white text-sm transition-all hover:scale-105 active:scale-95"
+
+          {/* Keyboard Row - Auto height with fluid grid */}
+          <div className="backdrop-blur-md bg-white/10 rounded-2xl p-[var(--space-sm)] sm:p-[var(--space-base)]">
+            <div className="max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg mx-auto space-y-[var(--space-xs)]">
+              {/* Top row - QWERTYUIOP */}
+              <div 
+                className="grid"
+                style={{ 
+                  gridTemplateColumns: 'repeat(10, minmax(0, 1fr))',
+                  gap: 'var(--space-xs)'
+                }}
               >
-                {key}
-              </button>
-            ))}
-            <button
-              onClick={handleBackspace}
-              className="h-10 md:h-10 bg-red-500/50 backdrop-blur-sm hover:bg-red-500/70 rounded-md font-bold text-white text-sm transition-all hover:scale-105 active:scale-95"
-            >
-              ←
-            </button>
+                {['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'].map(key => (
+                  <button
+                    key={key}
+                    onClick={() => handleKeyPress(key)}
+                    className="aspect-square max-h-12 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-md font-bold text-white text-fluid-xs sm:text-fluid-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Middle row - ASDFGHJKL */}
+              <div className="px-[5%] sm:px-[7%]">
+                <div 
+                  className="grid"
+                  style={{ 
+                    gridTemplateColumns: 'repeat(9, minmax(0, 1fr))',
+                    gap: 'var(--space-xs)'
+                  }}
+                >
+                  {['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'].map(key => (
+                    <button
+                      key={key}
+                      onClick={() => handleKeyPress(key)}
+                      className="aspect-square max-h-12 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-md font-bold text-white text-fluid-xs sm:text-fluid-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                    >
+                      {key}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Bottom row - ZXCVBNM + Backspace */}
+              <div className="px-[10%] sm:px-[12%]">
+                <div 
+                  className="grid"
+                  style={{ 
+                    gridTemplateColumns: 'repeat(8, minmax(0, 1fr))',
+                    gap: 'var(--space-xs)'
+                  }}
+                >
+                  {['Z', 'X', 'C', 'V', 'B', 'N', 'M'].map(key => (
+                    <button
+                      key={key}
+                      onClick={() => handleKeyPress(key)}
+                      className="aspect-square max-h-12 bg-white/20 backdrop-blur-sm hover:bg-white/30 rounded-md font-bold text-white text-fluid-xs sm:text-fluid-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                    >
+                      {key}
+                    </button>
+                  ))}
+                  <button
+                    onClick={handleBackspace}
+                    className="aspect-square max-h-12 bg-red-500/50 backdrop-blur-sm hover:bg-red-500/70 rounded-md font-bold text-white text-fluid-xs sm:text-fluid-sm transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
+                  >
+                    ←
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
